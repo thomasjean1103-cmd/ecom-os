@@ -317,8 +317,10 @@ export function AiAvatarPanel({ products }: Props) {
       });
       if (!res.ok) throw new Error(`Erreur serveur : ${res.status}`);
       const data = (await res.json()) as AvatarOutput;
-      const updatedPersonas: [AiPersona, AiPersona] = [...result.personas];
-      updatedPersonas[index] = data.personas[index];
+      const updatedPersonas: [AiPersona, AiPersona] = [
+        index === 0 ? data.personas[0] : result.personas[0],
+        index === 1 ? data.personas[1] : result.personas[1],
+      ];
       setResult({ personas: updatedPersonas });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur inconnue");
