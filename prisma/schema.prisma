@@ -1,0 +1,588 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+// prisma/schema.prisma
+// Ecom Intelligence OS — Command Edition
+// Copie ce fichier dans prisma/schema.prisma de ton projet
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// LAYER 1 — INTELLIGENCE
+// ============================================================
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  niche       String?
+  sourceUrl   String?
+  imageUrl    String?
+
+  // 10 scoring criteria (1-10 each)
+  painIntensity         Int @default(0)
+  tam                   Int @default(0)
+  differentiation       Int @default(0)
+  potentialMargin       Int @default(0)
+  potentialAov          Int @default(0)
+  bundleCapacity        Int @default(0)
+  retentionPotential    Int @default(0)
+  visualDemo            Int @default(0)
+  adAngleCount          Int @default(0)
+  multiSourceValidation Int @default(0)
+
+  totalScore     Int    @default(0)
+  verdict        String @default("NOT_SCORED") // NO_GO | TEST | GO
+  bestPath       String? // cashflow | brandable | paid-first | content-first | evergreen | trend
+  whatMustBeTrue String?
+  whatKillsIt    String?
+  notes          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  marketValidation MarketValidation?
+  competitors      Competitor[]
+  avatars          Avatar[]
+  positioning      Positioning?
+  offers           Offer[]
+  pdpVersions      PdpVersion[]
+  experiments      Experiment[]
+  creatives        Creative[]
+}
+
+model MarketValidation {
+  id        String  @id @default(cuid())
+  productId String  @unique
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  // Market temperature
+  temperature String @default("COLD") // COLD | WARM | HOT
+
+  // Proof signals (JSON arrays of evidence)
+  searchSignals   String @default("[]") // JSON: Google Trends, search volume
+  socialSignals   String @default("[]") // JSON: engagement, UGC, comments
+  purchaseSignals String @default("[]") // JSON: active competitors, running ads
+  contentSignals  String @default("[]") // JSON: articles, videos, discussions
+
+  proofCount Int @default(0) // Must be >= 3 for GO
+
+  // Findings
+  dominantObjections String @default("[]") // JSON array
+  soughtBenefits     String @default("[]") // JSON array
+  saturatedAngles    String @default("[]") // JSON array
+  freeAngles         String @default("[]") // JSON array
+
+  verdict      String @default("NOT_VALIDATED") // NO_GO | TEST | GO
+  killCriteria String @default("[]") // JSON array
+  nextMove     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Competitor {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  name String
+  url  String?
+
+  // Analysis fields
+  promise          String?
+  angle            String?
+  offerStructure   String? // JSON
+  priceRange       String?
+  pdpAnalysis      String? // JSON: structure, length, social proof
+  checkoutAnalysis String? // JSON: friction, reassurance, payment methods
+  guarantee        String?
+  urgencyTactic    String?
+  socialProof      String? // JSON: type and volume
+  weaknesses       String? // JSON array
+
+  // Classification per element (JSON)
+  stealItems   String @default("[]")
+  adaptItems   String @default("[]")
+  avoidItems   String @default("[]")
+  counterItems String @default("[]")
+
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model VocEntry {
+  id String @id @default(cuid())
+
+  // The verbatim
+  quote     String
+  source    String? // review | comment | forum | email | ugc
+  sourceUrl String?
+
+  // Tags
+  type  String // pain | desire | objection | fear | frustration | proof_sought
+  usage String @default("[]") // JSON: hook | pdp | faq | ugc_script | email
+
+  // Scores
+  frequency          Int @default(1) // How often this theme appears
+  emotionalIntensity Int @default(3) // 1-5
+  purchaseProximity  Int @default(3) // 1-5
+
+  productNiche String?
+  notes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Pattern {
+  id   String @id @default(cuid())
+  type String // promise | bundle | objection | creative_style | pdp_structure | saturating_angle
+
+  description String
+  evidence    String @default("[]") // JSON: list of supporting data points
+  frequency   Int    @default(1)
+  trend       String @default("STABLE") // RISING | STABLE | DECLINING | SATURATING
+
+  niche        String?
+  isAlert      Boolean @default(false) // Flag for pattern alerts
+  alertMessage String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// LAYER 2 — STRATEGY
+// ============================================================
+
+model Avatar {
+  id        String  @id @default(cuid())
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  name String
+
+  // Avatar profile
+  identity           String? // age, gender, situation
+  currentSituation   String?
+  mainPain           String?
+  failedSolutions    String @default("[]") // JSON array
+  beliefs            String @default("[]") // JSON array
+  hiddenDesire       String?
+  buyingMoment       String?
+  copyTriggers       String @default("[]") // JSON array
+  trustTriggers      String @default("[]") // JSON array
+  resistanceTriggers String @default("[]") // JSON array
+
+  // Messaging Map
+  tofMessage String? // Top of Funnel
+  mofMessage String? // Middle of Funnel
+  bofMessage String? // Bottom of Funnel
+
+  // Buying Moment Map
+  hottestMoment      String?
+  whyHotThen         String?
+  bestAngleForMoment String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Positioning {
+  id        String  @id @default(cuid())
+  productId String  @unique
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  mainEnemy                String?
+  beatenAlternative        String?
+  corePromise              String?
+  differentiatingMechanism String?
+  mainProof                String?
+  recommendedTone          String? // authoritative | empathetic | provocative | educational
+  visualTerritory          String?
+  comparisonTerrain        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Offer {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  name     String
+  scenario String // conversion_max | margin_max | aov_max | ltv_max
+
+  // Structure
+  basePrice             Float?
+  bundleStructure       String? // JSON
+  freeShippingThreshold Float?
+  upsellOffer           String?
+  crossSellOffer        String?
+
+  // Analysis
+  rationale        String?
+  expectedFriction String?
+  expectedGain     String?
+  conversionDanger String?
+  marginDanger     String?
+  testDecision     String? // TEST | SKIP | PRIORITY
+
+  verdict String @default("DRAFT") // DRAFT | TESTING | WINNER | LOSER
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Angle {
+  id String @id @default(cuid())
+
+  name         String
+  description  String?
+  productNiche String?
+
+  // Scoring (1-10)
+  avatarRelevance       Int @default(0)
+  competitorDiff        Int @default(0)
+  visualDemonstrability Int @default(0)
+  emotionalPotential    Int @default(0)
+  saturationLevel       Int @default(0) // Higher = more saturated = worse
+
+  totalScore Int @default(0)
+  rank       Int? // Priority ranking
+  status     String @default("CANDIDATE") // CANDIDATE | TESTING | WINNER | DEAD
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// LAYER 3 — PRODUCTION
+// ============================================================
+
+model CopyAsset {
+  id String @id @default(cuid())
+
+  type String // hook | ad_copy | pdp_copy | email_copy | objection_handler
+
+  // Context
+  angle             String?
+  funnelStage       String? // TOF | MOF | BOF
+  targetEmotion     String?
+  objectionHandled  String?
+
+  // Content
+  contentSafe       String? // Safe variant
+  contentAggressive String? // Aggressive variant
+  objective         String?
+
+  status String @default("DRAFT") // DRAFT | TESTING | WINNER | DEAD
+
+  productNiche String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Creative {
+  id        String  @id @default(cuid())
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  name       String
+  hypothesis String?
+  angle      String?
+  persona    String?
+
+  hookVisual       String?
+  hookVerbal       String?
+  patternInterrupt String?
+  proofType        String? // ugc | demo | stat | testimonial
+  cta              String?
+  format           String? // ugc_video | image_ad | carousel | vsl | story
+
+  kpiTarget     String? // JSON: { metric: "CTR", target: 2.0 }
+  killThreshold String? // JSON: { metric: "CPC", max: 3.0 }
+
+  status String @default("DRAFT") // DRAFT | TESTING | WINNER | DEAD
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PdpVersion {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  version      Int    @default(1)
+  priorityGoal String? // increase_atc | justify_price | reassure | increase_aov | prequalify
+
+  // 7 sections (JSON content for each)
+  heroSection        String @default("{}")
+  problemSection     String @default("{}")
+  solutionSection    String @default("{}")
+  socialProofSection String @default("{}")
+  howItWorksSection  String @default("{}")
+  objectionSection   String @default("{}")
+  finalCtaSection    String @default("{}")
+
+  verdict String @default("DRAFT") // DRAFT | TESTING | WINNER | REPLACED
+  notes   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RetentionFlow {
+  id String @id @default(cuid())
+
+  type String // cart_abandon | welcome | post_purchase | reengagement | vip
+
+  status   String @default("NOT_YET") // NOT_YET | ACTIVE | PAUSED | PLANNED
+  priority Int    @default(0) // Lower = higher priority
+
+  triggerEvent   String?
+  segments       String @default("[]") // JSON
+  repeatOffer    String?
+  crossSellOpps  String @default("[]") // JSON
+  ambassadorPlan String?
+
+  flowContent String @default("[]") // JSON: array of email steps
+
+  decision String @default("NOT_YET") // NOT_YET | ACTIVATE_NOW | ACTIVATE_LATER
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// LAYER 4 & 5 — EXECUTION + DECISION
+// ============================================================
+
+model Experiment {
+  id        String  @id @default(cuid())
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  name String
+  type String? // angle | creative | offer | pdp | price | copy
+
+  hypothesis      String
+  variableChanged String
+  keptConstant    String?
+
+  // Metrics
+  metricsBefore String @default("{}") // JSON
+  metricsAfter  String @default("{}") // JSON
+
+  startDate  DateTime?
+  endDate    DateTime?
+  reviewDate DateTime?
+
+  killThreshold String? // JSON
+
+  verdict      String @default("RUNNING") // RUNNING | CUT | ITERATE | KEEP | SCALE | NOT_ENOUGH_DATA
+  verdictNotes String?
+
+  // Auto-feeds into learnings
+  learningGenerated Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WeeklyPriority {
+  id String @id @default(cuid())
+
+  weekStart   DateTime
+  moneyMove   String // THE one priority
+  biggestLeak String?
+  leakMetric  String?
+
+  secondaryTasks String @default("[]") // JSON array (max 2)
+
+  status String @default("ACTIVE") // ACTIVE | COMPLETED | SKIPPED
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model LaunchChecklist {
+  id        String @id @default(cuid())
+  productId String?
+
+  productValidated     Boolean @default(false)
+  marketValidated      Boolean @default(false)
+  avatarDefined        Boolean @default(false)
+  positioningValidated Boolean @default(false)
+  offerArchitected     Boolean @default(false)
+  pdpLive              Boolean @default(false)
+  creativesReady       Boolean @default(false)
+  trackingSetup        Boolean @default(false)
+  cartAbandonActive    Boolean @default(false)
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// CRO Diagnostic
+model CroAudit {
+  id String @id @default(cuid())
+
+  // Input metrics
+  bounceRate      Float?
+  cartAbandonRate Float?
+  avgTimeOnSite   Float? // in seconds
+  conversionRate  Float?
+  aov             Float?
+  atcRate         Float?
+
+  // Diagnosis
+  biggestLeak     String?
+  secondLeak      String?
+  quickWins       String @default("[]") // JSON
+  heavyWork       String @default("[]") // JSON
+  weeklyMoneyMove String?
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// LAYER 6 — MEMORY
+// ============================================================
+
+model Learning {
+  id String @id @default(cuid())
+
+  type String // win | loss | insight
+
+  description    String
+  productType    String?
+  avatar         String?
+  angle          String?
+  trafficContext String?
+
+  tags   String @default("[]") // JSON array
+  impact String? // high | medium | low
+
+  sourceExperimentId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WinningPattern {
+  id String @id @default(cuid())
+
+  category String // hook | offer | pdp | objection | ugc | email
+
+  pattern   String
+  evidence  String @default("[]") // JSON: supporting experiments/data
+  frequency Int    @default(1)
+
+  tags String @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DeadAngle {
+  id String @id @default(cuid())
+
+  angle String
+  niche String?
+
+  whyFailed       String
+  observedSymptom String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OfferBankEntry {
+  id String @id @default(cuid())
+
+  offerDescription String
+  type             String // safe | aggressive | premium | repeat_friendly
+
+  observedCvr    Float?
+  observedAov    Float?
+  observedMargin Float?
+
+  verdict String @default("UNTESTED") // UNTESTED | WINNER | LOSER | SITUATIONAL
+  notes   String?
+
+  tags String @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ObjectionBankEntry {
+  id String @id @default(cuid())
+
+  objection    String
+  bestResponse String?
+
+  frequency Int @default(1)
+  severity  Int @default(3) // 1-5
+
+  usage String @default("[]") // JSON: where it's been used
+  tags  String @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PhraseBankEntry {
+  id String @id @default(cuid())
+
+  phrase  String
+  source  String? // review | email | comment | ad
+  emotion String? // pain | desire | excitement | fear | trust
+  context String?
+
+  usage String @default("[]") // JSON: hook | pdp | email | ad
+  tags  String @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// CORE KPIs (snapshots for dashboard)
+// ============================================================
+
+model KpiSnapshot {
+  id String @id @default(cuid())
+
+  date            DateTime
+  revenue         Float?
+  conversionRate  Float?
+  aov             Float?
+  atcRate         Float?
+  cartAbandonRate Float?
+  repeatRate      Float?
+  ltv             Float?
+
+  notes String?
+
+  createdAt DateTime @default(now())
+}
