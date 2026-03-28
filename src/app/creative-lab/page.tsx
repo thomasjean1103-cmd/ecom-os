@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 
 import { AppHeader } from "@/components/layout/header";
 import { ModuleOutputCard } from "@/components/ui/module-output-card";
+import { AiCreativePanel } from "@/components/ui/ai-creative-panel";
 import { Card } from "@/components/ui/card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { safeJsonObject } from "@/lib/json";
@@ -32,11 +33,16 @@ async function createCreative(formData: FormData) {
 }
 
 export default async function CreativeLabPage() {
-  const items = await prisma.creative.findMany({ orderBy: { createdAt: "desc" }, take: 30 });
+  const [items, products] = await Promise.all([
+    prisma.creative.findMany({ orderBy: { createdAt: "desc" }, take: 30 }),
+    prisma.product.findMany({ orderBy: { createdAt: "desc" }, take: 20, select: { id: true, name: true, niche: true, description: true } }),
+  ]);
   return (
     <>
       <AppHeader screenId="creative-lab" />
-      <main className="grid gap-4 p-4 md:grid-cols-2 md:p-6">
+      <main className="space-y-4 p-4 md:p-6">
+        <AiCreativePanel products={products} />
+        <div className="grid gap-4 md:grid-cols-2">
         <Card title="Creative Lab" subtitle="Matrice creative + kill thresholds">
           <form action={createCreative} className="space-y-3 text-xs">
             <input name="name" required placeholder="Nom creative" className="w-full rounded border border-zinc-700 bg-zinc-950 p-2" />
@@ -55,6 +61,7 @@ export default async function CreativeLabPage() {
           </form>
         </Card>
         <ModuleOutputCard output={creativeLabOutput(items)} />
+        </div>
       </main>
     </>
   );

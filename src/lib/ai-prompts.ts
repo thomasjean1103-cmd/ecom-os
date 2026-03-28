@@ -8,7 +8,7 @@ export type AiContext = {
   testBudget?: string;
 };
 
-export type AiModule = "avatar" | "market" | "voc" | "competitor";
+export type AiModule = "avatar" | "market" | "voc" | "competitor" | "creative";
 
 // ─── Avatar Studio types ──────────────────────────────────────────────────────
 
@@ -93,7 +93,26 @@ export type CompetitorOutput = {
   matrix: { steal: string[]; adapt: string[]; avoid: string[]; counter: string[] };
 };
 
-export type AiOutput = AvatarOutput | MarketOutput | VocOutput | CompetitorOutput;
+// ─── Creative Lab types ───────────────────────────────────────────────────────
+
+export type AiCreativeBrief = {
+  name: string;
+  angle: string;
+  format: string;
+  hookVisual: string;
+  hookVerbal: string;
+  patternInterrupt: string;
+  proofType: string;
+  cta: string;
+  script: string[];
+  kpiTarget: string;
+  killThreshold: string;
+  why: string;
+};
+
+export type CreativeOutput = { briefs: AiCreativeBrief[] };
+
+export type AiOutput = AvatarOutput | MarketOutput | VocOutput | CompetitorOutput | CreativeOutput;
 
 // ─── System prompts ───────────────────────────────────────────────────────────
 
@@ -105,6 +124,8 @@ export const SYSTEM_PROMPTS: Record<AiModule, string> = {
   voc: `Tu es un expert en copywriting e-commerce et psychologie du consommateur. Tu génères des verbatims clients authentiques, des mots émotionnels puissants et des formules copy prêtes à l'emploi. Ton style est direct, émotionnel et persuasif. Réponds TOUJOURS en JSON valide uniquement, sans markdown ni texte autour.`,
 
   competitor: `Tu es un analyste concurrentiel expert en e-commerce et publicité digitale. Tu analyses les concurrents pour identifier leurs forces, faiblesses et comment les battre. Tu fournis des recommandations tactiques concrètes. Réponds TOUJOURS en JSON valide uniquement, sans markdown ni texte autour.`,
+
+  creative: `Tu es un directeur créatif expert en publicités e-commerce direct-response, UGC et performance marketing. Tu crées des briefs créatifs précis, psychologiquement calibrés et prêts à produire pour des marques D2C francophones. Réponds TOUJOURS en JSON valide uniquement, sans markdown ni texte autour.`,
 };
 
 // ─── User prompt builders ─────────────────────────────────────────────────────
@@ -132,6 +153,13 @@ Génère une analyse de marché complète. Réponds avec ce JSON exact:
 Génère 10 verbatims clients + mots émotionnels + formules copy. Réponds avec ce JSON exact:
 {"verbatims":[{"quote":"Citation authentique spécifique","type":"pain","emotionalIntensity":4,"purchaseProximity":5}],"emotionalWords":["mot1","mot2","mot3","mot4","mot5","mot6","mot7","mot8"],"copyFormulas":[{"formula":"Formule copy prête à l'emploi","usage":"hook"},{"formula":"Formule2","usage":"pdp"},{"formula":"Formule3","usage":"email"},{"formula":"Formule4","usage":"ad"},{"formula":"Formule5","usage":"objection"}],"objections":[{"objection":"Objection1","response":"Réponse persuasive1"},{"objection":"Objection2","response":"Réponse2"},{"objection":"Objection3","response":"Réponse3"},{"objection":"Objection4","response":"Réponse4"}]}
 Génère exactement 10 verbatims, mix de types: pain(4), desire(3), fear(1), objection(1), frustration(1).`;
+
+    case "creative":
+      return `${base}${ctx.description ? `` : ""}
+
+Génère 3 briefs créatifs distincts (angles différents). Réponds avec ce JSON exact:
+{"briefs":[{"name":"Nom du concept","angle":"Angle psychologique ex: Douleur→Solution","format":"UGC Vidéo 15s","hookVisual":"Description plan d'ouverture 1 phrase","hookVerbal":"Premiers mots prononcés accrocheurs","patternInterrupt":"Ce qui stoppe le scroll","proofType":"ugc","cta":"Texte du bouton d'action","script":["ligne1 script","ligne2","ligne3","ligne4"],"kpiTarget":"CTR > 2.5%","killThreshold":"CPC > 3€ après 500 clics","why":"Raison psychologique 1-2 phrases"}]}
+Les 3 briefs doivent utiliser des formats différents (ugc_video, image_ad, carousel ou vsl) et des angles distincts (douleur, désir, preuve sociale, autorité, transformation).`;
 
     case "competitor":
       return `${base}${ctx.price ? ` | Notre prix cible: "${ctx.price}"` : ""}
@@ -286,6 +314,68 @@ export function generateMock(module: AiModule, ctx: AiContext): AiOutput {
           { objection: "\"Je vais y réfléchir\"", response: `Chaque jour sans agir, le problème s'aggrave. Nos clients qui ont attendu disent tous : "J'aurais dû le faire bien plus tôt."` },
         ],
       } as VocOutput;
+
+    case "creative":
+      return {
+        briefs: [
+          {
+            name: "Douleur Miroir",
+            angle: "Douleur → Identification → Solution",
+            format: "UGC Vidéo 15s",
+            hookVisual: `Quelqu'un masse sa nuque épuisé devant un écran, regard vide`,
+            hookVerbal: `"Vous aussi vous finissez vos journées avec cette douleur ?"`,
+            patternInterrupt: "Visage fatigué en gros plan + pause silence 1 seconde",
+            proofType: "ugc",
+            cta: "Essayer sans risque →",
+            script: [
+              `"Moi aussi j'ai cru que c'était normal de souffrir comme ça…"`,
+              `"Jusqu'à ce que je découvre ${n}."`,
+              `"3 semaines plus tard, je redors enfin. Je récupère. Je vis."`,
+              `"Garantie 30 jours. Rien à perdre."`,
+            ],
+            kpiTarget: "CTR > 2.8%",
+            killThreshold: "CPC > 2.80€ après 400 clics",
+            why: `L'identification par la douleur est le pattern le plus fort pour ${niche}. Le prospect se voit dans la créa avant de voir le produit.`,
+          },
+          {
+            name: "Preuve Sociale Chiffres",
+            angle: "Scepticisme → Preuve → Confiance",
+            format: "Image Ad (static)",
+            hookVisual: `Split-screen : avant (douleur) / après (sourire), chiffre central "12 847 clients"`,
+            hookVerbal: `"12 847 personnes ont arrêté de souffrir. Vous êtes la prochaine ?"`,
+            patternInterrupt: "Contraste fort rouge/vert + chiffre XL",
+            proofType: "stat",
+            cta: "Voir les témoignages",
+            script: [
+              `12 847 clients. 4.9★. Remboursé si ça ne marche pas.`,
+              `${n} — conçu pour ceux qui ont tout essayé.`,
+              `Livraison 48h. Résultats dès J7.`,
+            ],
+            kpiTarget: "CTR > 1.9%",
+            killThreshold: "CPC > 3.50€ après 600 clics",
+            why: `Le sceptique de ${niche} a besoin de volume social + garantie avant tout. La preuve chiffrée court-circuite le doute initial.`,
+          },
+          {
+            name: "Transformation Désir Caché",
+            angle: "Désir profond → Projection → Urgence",
+            format: "Carousel 4 slides",
+            hookVisual: `Slide 1 : personne rayonnante, active, texte "Et si c'était possible pour vous ?"`,
+            hookVerbal: `"Slide 1 : Ce n'est pas juste une question de ${niche}…"`,
+            patternInterrupt: "Question ouverte + espace blanc",
+            proofType: "testimonial",
+            cta: "Commencer ma transformation",
+            script: [
+              `Slide 1 : "Ce n'est pas juste ${niche}. C'est votre qualité de vie entière."`,
+              `Slide 2 : "Imaginez vous lever le matin sans appréhension."`,
+              `Slide 3 : "C'est ce que ${n} a changé pour Marie, Thomas, et 12 000 autres."`,
+              `Slide 4 : "Essayez 30 jours — ou remboursé intégralement."`,
+            ],
+            kpiTarget: "Swipe rate > 45%",
+            killThreshold: "CTR slide final < 0.8% après 1000 impressions",
+            why: `Le désir caché (pas juste guérir, mais retrouver une vie) est plus motivant que la douleur seule. Le carousel permet de dérouler le storytelling.`,
+          },
+        ],
+      } as CreativeOutput;
 
     case "competitor":
       return {
