@@ -1,7 +1,7 @@
 "use client";
 
-import { Loader2, RefreshCw, Sparkles, User } from "lucide-react";
-import { useState } from "react";
+import { Loader2, RefreshCw, Sparkles, User, Zap } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import type { AiPersona, AvatarOutput } from "@/lib/ai-prompts";
 
@@ -62,6 +62,174 @@ function BulletList({ items, color = "#ef4444" }: { items: string[]; color?: str
         </li>
       ))}
     </ul>
+  );
+}
+
+// ─── Message Resonance Engine ─────────────────────────────────────────────────
+
+type HitMap = { trigger: string; weight: number };
+
+function tokenize(text: string): string[] {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function overlaps(msgTokens: string[], phrase: string): number {
+  const phraseTokens = tokenize(phrase);
+  if (!phraseTokens.length) return 0;
+  const hits = phraseTokens.filter((t) => msgTokens.includes(t)).length;
+  // Partial match: ≥50% of phrase words found
+  return hits / phraseTokens.length >= 0.5 ? hits / phraseTokens.length : 0;
+}
+
+function scorePersona(
+  message: string,
+  persona: AiPersona,
+): { score: number; hits: HitMap[] } {
+  if (!message.trim()) return { score: 0, hits: [] };
+  const tokens = tokenize(message);
+  const hits: HitMap[] = [];
+
+  const checks: Array<{ text: string; weight: number }> = [
+    ...persona.copyTriggers.map((t) => ({ text: t, weight: 3 })),
+    { text: persona.mainPain, weight: 2.5 },
+    { text: persona.hiddenDesire, weight: 2.5 },
+    ...persona.fears.map((t) => ({ text: t, weight: 1.5 })),
+    ...persona.verbatims.map((t) => ({ text: t, weight: 1 })),
+    { text: persona.buyingMoment, weight: 1.5 },
+  ];
+
+  let earned = 0;
+  const maxPossible = checks.reduce((s, c) => s + c.weight, 0);
+
+  for (const { text, weight } of checks) {
+    const ratio = overlaps(tokens, text);
+    if (ratio > 0) {
+      const contribution = ratio * weight;
+      earned += contribution;
+      hits.push({ trigger: text, weight: contribution });
+    }
+  }
+
+  const raw = maxPossible > 0 ? earned / maxPossible : 0;
+  // Sigmoid-like stretch so partial matches feel meaningful
+  const score = Math.round(Math.min(100, raw * 220));
+  hits.sort((a, b) => b.weight - a.weight);
+  return { score, hits: hits.slice(0, 5) };
+}
+
+function scoreColor(score: number): string {
+  if (score >= 70) return "#22c55e";
+  if (score >= 40) return "#f59e0b";
+  return "#ef4444";
+}
+
+function scoreLabel(score: number): string {
+  if (score >= 70) return "Fort";
+  if (score >= 40) return "Moyen";
+  if (score > 0) return "Faible";
+  return "—";
+}
+
+function MessageResonanceMeter({ personas }: { personas: [AiPersona, AiPersona] }) {
+  const [message, setMessage] = useState("");
+  const [scores, setScores] = useState<Array<{ score: number; hits: HitMap[] }>>([
+    { score: 0, hits: [] },
+    { score: 0, hits: [] },
+  ]);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      setScores(personas.map((p) => scorePersona(message, p)));
+    }, 180);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [message, personas]);
+
+  return (
+    <div className="rounded-xl border border-zinc-700/60 bg-zinc-900/80 p-4">
+      {/* Header */}
+      <div className="mb-3 flex items-center gap-2">
+        <Zap size={14} className="text-amber-400" />
+        <p className="text-xs font-semibold text-zinc-200">Message Resonance Meter</p>
+        <span className="ml-auto rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-400">
+          BÊTA · temps réel
+        </span>
+      </div>
+      <p className="mb-3 text-[11px] text-zinc-500">
+        Colle ton headline ou hook ici — vois instantanément à quel point il résonne avec chaque persona.
+      </p>
+
+      <textarea
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        placeholder="ex : « Enfin un sommeil profond sans médicaments — en 7 nuits »"
+        rows={2}
+        className="w-full resize-none rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20"
+      />
+
+      {/* Scores */}
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        {personas.map((persona, i) => {
+          const { score, hits } = scores[i];
+          const color = scoreColor(score);
+          const barWidth = `${score}%`;
+          return (
+            <div key={i} className="space-y-2">
+              {/* Persona name + badge */}
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-semibold text-zinc-300">{persona.name}</p>
+                <span
+                  className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+                  style={{ background: `${color}18`, color }}
+                >
+                  {scoreLabel(score)}
+                </span>
+              </div>
+
+              {/* Progress bar */}
+              <div className="relative h-2 w-full overflow-hidden rounded-full bg-zinc-800">
+                <div
+                  className="h-full rounded-full transition-all duration-300 ease-out"
+                  style={{ width: barWidth, background: color }}
+                />
+              </div>
+              <p className="text-right text-[10px] font-mono" style={{ color }}>
+                {score} / 100
+              </p>
+
+              {/* Hit chips */}
+              {hits.length > 0 ? (
+                <div className="flex flex-wrap gap-1">
+                  {hits.map((h, j) => (
+                    <span
+                      key={j}
+                      className="max-w-[180px] truncate rounded-md px-1.5 py-0.5 text-[10px]"
+                      style={{ background: `${color}15`, color }}
+                      title={h.trigger}
+                    >
+                      ✓ {h.trigger}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[10px] text-zinc-600 italic">
+                  {message.trim() ? "Aucun trigger détecté" : "En attente de message…"}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -418,16 +586,19 @@ export function AiAvatarPanel({ products }: Props) {
       {result === null ? (
         <EmptyState />
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {result.personas.map((persona, i) => (
-            <PersonaCard
-              key={i}
-              persona={persona}
-              index={i as 0 | 1}
-              isRegenerating={regenIndex === i}
-              onRegenerate={() => regeneratePersona(i as 0 | 1)}
-            />
-          ))}
+        <div className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            {result.personas.map((persona, i) => (
+              <PersonaCard
+                key={i}
+                persona={persona}
+                index={i as 0 | 1}
+                isRegenerating={regenIndex === i}
+                onRegenerate={() => regeneratePersona(i as 0 | 1)}
+              />
+            ))}
+          </div>
+          <MessageResonanceMeter personas={result.personas} />
         </div>
       )}
     </div>
