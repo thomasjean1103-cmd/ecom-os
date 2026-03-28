@@ -175,7 +175,7 @@ function PersonaCard({
         <div className="space-y-2">
           {persona.verbatims.map((quote, i) => (
             <p key={i} className="italic text-zinc-400">
-              &ldquo;{quote.replace(/^["«]|["»]$/g, "")}&rdquo;
+              &laquo;&nbsp;{quote.replace(/^["«\u00ab]|["»\u00bb]$/g, "").trim()}&nbsp;&raquo;
             </p>
           ))}
         </div>
